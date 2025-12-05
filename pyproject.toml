@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Ab initio full cell dynamical mean-field theory (DMFT) and GW+DMFT for solids based on PySCF"
 readme = "README.md"
 requires-python = ">=3.11"
-license = LICENSE
+license = {file = "LICENSE"}
 authors = [
     {name = "Tianyu Zhu", email = "tianyu.zhu@yale.edu"},
     {name = "Huanchen Zhai"},
