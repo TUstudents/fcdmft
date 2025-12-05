@@ -1,21 +1,36 @@
 #!/usr/bin/python
 
-import time, sys, os, h5py
+import os
+import sys
+import time
+
+import h5py
 import numpy as np
-from scipy import linalg, optimize
+from mpi4py import MPI
+from pyscf import lib
+from pyscf.lib import logger
+from scipy import linalg
 from scipy.optimize import least_squares
 
-from pyscf.lib import logger
-from pyscf import lib
-from fcdmft import solver
-from fcdmft.solver import scf_mu as scf
-from fcdmft.gw.pbc import krgw_gf
+from fcdmft.dmft.dmft_solver import (
+    cc_gf,
+    cc_rdm,
+    dmrg_gf,
+    dmrg_rdm,
+    fci_gf,
+    fci_rdm,
+    get_gf,
+    get_sigma,
+    mf_kernel,
+    ucc_gf,
+    ucc_rdm,
+    udmrg_gf,
+    udmrg_rdm,
+)
 from fcdmft.gw.mol import gw_dc
+from fcdmft.gw.pbc import krgw_gf
+from fcdmft.solver import scf_mu as scf
 from fcdmft.utils import write
-from fcdmft.dmft.dmft_solver import mf_kernel, \
-                cc_gf, ucc_gf, dmrg_gf, udmrg_gf, cc_rdm, ucc_rdm, \
-                dmrg_rdm, udmrg_rdm, fci_gf, fci_rdm, get_gf, get_sigma
-from mpi4py import MPI
 
 einsum = lib.einsum
 
@@ -199,6 +214,7 @@ def kernel(dmft, mu, wl=None, wh=None, occupancy=None, delta=None,
 
     dmft_conv = False
     cycle = 0
+    dm_last = None # Initialize dm_last
     if rank == 0:
         cput1 = logger.timer(dmft, 'initialize DMFT', *cput0)
     while not dmft_conv and cycle < max(1, dmft.max_cycle):
@@ -393,7 +409,6 @@ def kernel(dmft, mu, wl=None, wh=None, occupancy=None, delta=None,
         comm.Barrier()
 
     if dmft.load_mf:
-        from pyscf import ao2mo
         fn = 'dmft_scf.h5'
         feri = h5py.File(fn, 'r')
         dmft._scf.mo_coeff = np.array(feri['mo_coeff'])
@@ -419,6 +434,7 @@ def mu_fit(dmft, mu0, occupancy, himp, eri_imp, dm0, step=0.03, trust_region=0.0
     mu_cycle = 0
     dmu = 0
     record = []
+    dnelec_old = 0.0 # Initialize dnelec_old
     if rank == 0:
         logger.info(dmft, '### Start chemical potential fitting ###')
 
@@ -450,8 +466,10 @@ def mu_fit(dmft, mu0, occupancy, himp, eri_imp, dm0, step=0.03, trust_region=0.0
                 dmu = step
         elif len(record) == 2:
             # linear fit
-            dmu1 = record[0][0]; dnelec1 = record[0][1]
-            dmu2 = record[1][0]; dnelec2 = record[1][1]
+            dmu1 = record[0][0]
+            dnelec1 = record[0][1]
+            dmu2 = record[1][0]
+            dnelec2 = record[1][1]
             dmu = (dmu1*dnelec2 - dmu2*dnelec1) / (dnelec2 - dnelec1)
         else:
             # linear fit
@@ -510,7 +528,8 @@ def opt_bath(bath_e, bath_v, hyb, freqs, delta, nw_org, diag_only=False, orb_fit
     spin, nimp, nbath = bath_v.shape
     nb_per_e = nbath // nw_org
     v_opt = np.zeros((spin, nw_org+nimp*nbath))
-    min_bound = []; max_bound = []
+    min_bound = []
+    max_bound = []
     for i in range(nw_org+nimp*nbath):
         if i < nw_org:
             min_bound.append(freqs[0])
@@ -523,11 +542,18 @@ def opt_bath(bath_e, bath_v, hyb, freqs, delta, nw_org, diag_only=False, orb_fit
         if s == 0:
             v0 = np.concatenate([bath_e[s][:nw_org], bath_v[s].reshape(-1)])
             try:
-                xopt = least_squares(bath_fit, v0, jac='2-point', method='trf', bounds=(min_bound,max_bound), xtol=1e-8,
-                     gtol=1e-6, max_nfev=500, verbose=1, args=(hyb[s], bath_v[s], freqs, delta, nw_org, diag_only, orb_fit))
-            except:
-                xopt = least_squares(bath_fit, v0, jac='2-point', method='lm', xtol=1e-8,
-                     gtol=1e-6, max_nfev=500, verbose=1, args=(hyb[s], bath_v[s], freqs, delta, nw_org, diag_only, orb_fit))
+                xopt = least_squares(
+                    bath_fit, v0, jac='2-point', method='trf',
+                    bounds=(min_bound,max_bound), xtol=1e-8,
+                    gtol=1e-6, max_nfev=500, verbose=1,
+                    args=(hyb[s], bath_v[s], freqs, delta, nw_org, diag_only, orb_fit)
+                )
+            except Exception:
+                xopt = least_squares(
+                    bath_fit, v0, jac='2-point', method='lm', xtol=1e-8,
+                    gtol=1e-6, max_nfev=500, verbose=1,
+                    args=(hyb[s], bath_v[s], freqs, delta, nw_org, diag_only, orb_fit)
+                )
             v_opt[s] = xopt.x.copy()
         else:
             v0 = bath_v[s].reshape(-1)
@@ -535,7 +561,7 @@ def opt_bath(bath_e, bath_v, hyb, freqs, delta, nw_org, diag_only=False, orb_fit
                 xopt = least_squares(bath_fit_v, v0, jac='2-point', method='trf', xtol=1e-8,
                              gtol=1e-6, max_nfev=500, verbose=1,
                              args=(v_opt[0][:nw_org], hyb[s], bath_v[s], freqs, delta, nw_org, diag_only, orb_fit))
-            except:
+            except Exception:
                 xopt = least_squares(bath_fit_v, v0, jac='2-point', method='lm', xtol=1e-8,
                              gtol=1e-6, max_nfev=500, verbose=1,
                              args=(v_opt[0][:nw_org], hyb[s], bath_v[s], freqs, delta, nw_org, diag_only, orb_fit))
@@ -591,7 +617,7 @@ def opt_bath_v_only(bath_e, bath_v, hyb, freqs, delta, nw_org, diag_only=False, 
             xopt = least_squares(bath_fit_v, v0, jac='2-point', method='trf', xtol=1e-10,
                          gtol = 1e-10, max_nfev=500, verbose=1,
                          args=(bath_e[s][:nw_org], hyb[s], bath_v[s], freqs, delta, nw_org, diag_only, orb_fit))
-        except:
+        except Exception:
             xopt = least_squares(bath_fit_v, v0, jac='2-point', method='lm', xtol=1e-10,
                          gtol = 1e-10, max_nfev=500, verbose=1,
                          args=(bath_e[s][:nw_org], hyb[s], bath_v[s], freqs, delta, nw_org, diag_only, orb_fit))
@@ -729,7 +755,7 @@ def get_bath(hyb, freqs, wts):
     wl = min(freqs)
     spin, nimp = hyb.shape[0:2]
 
-    dw = (wh - wl) / (nw - 1)
+    #dw = (wh - wl) / (nw - 1)
     # Eq. (6), arxiv:1507.07468
     v2 = -1./np.pi * np.imag(hyb)
 
@@ -785,8 +811,8 @@ def get_bath_direct(hyb, freqs, nw_org):
     """
     nw = len(freqs)
     wmult = nw // nw_org
-    wh = max(freqs)
-    wl = min(freqs)
+    #wh = max(freqs)
+    #wl = min(freqs)
 
     # Eq. (6), arxiv:1507.07468
     v2 = -1./np.pi * np.imag(hyb)
@@ -858,7 +884,7 @@ class DMFT(lib.StreamObject):
     max_memory = 8000
     try:
         n_threads = int(os.environ['OMP_NUM_THREADS'])
-    except:
+    except KeyError:
         n_threads = 8
 
     # DIIS parameters for DMFT hybridization
@@ -1012,7 +1038,7 @@ class DMFT(lib.StreamObject):
         fn = 'C_mo_lo.h5'
         feri = h5py.File(fn, 'r')
         C_mo_lo = np.asarray(feri['C_mo_lo'])
-        C_ao_lo = np.asarray(feri['C_ao_lo'])
+        # C_ao_lo = np.asarray(feri['C_ao_lo'])
         feri.close()
 
         nw = len(freqs)
@@ -1040,9 +1066,10 @@ class DMFT(lib.StreamObject):
         Get interpolated k-point GW-AC self-energy in LO basis
         NOTE: sigma = v_hf + sigma_gw - v_xc, must be used together with DFT Fock
         '''
-        from fcdmft.utils import interpolate
-        from pyscf.pbc import scf, dft
+        from pyscf.pbc import dft
         from pyscf.pbc.lib import chkfile
+
+        from fcdmft.utils import interpolate
 
         fn = 'ac_coeff.h5'
         feri = h5py.File(fn, 'r')
@@ -1054,7 +1081,7 @@ class DMFT(lib.StreamObject):
         fn = 'C_mo_lo.h5'
         feri = h5py.File(fn, 'r')
         C_mo_lo = np.asarray(feri['C_mo_lo'])
-        C_ao_lo = np.asarray(feri['C_ao_lo'])
+        # C_ao_lo = np.asarray(feri['C_ao_lo'])
         feri.close()
 
         fn = 'vxc.h5'
@@ -1108,14 +1135,15 @@ class DMFT(lib.StreamObject):
         Get interpolated k-point HF self-energy in LO basis
         NOTE: sigma = v_hf - v_xc, must be used together with DFT Fock
         '''
-        from fcdmft.utils import interpolate
-        from pyscf.pbc import scf, dft
+        from pyscf.pbc import dft
         from pyscf.pbc.lib import chkfile
+
+        from fcdmft.utils import interpolate
 
         fn = 'C_mo_lo.h5'
         feri = h5py.File(fn, 'r')
         C_mo_lo = np.asarray(feri['C_mo_lo'])
-        C_ao_lo = np.asarray(feri['C_ao_lo'])
+        # C_ao_lo = np.asarray(feri['C_ao_lo'])
         feri.close()
 
         fn = 'vxc.h5'
@@ -1210,7 +1238,7 @@ class DMFT(lib.StreamObject):
         '''
         Get local GW double counting self-energy
         '''
-        spin, nao, nbath = self.spin, self.nao, self.nbath
+        spin, nao, _ = self.spin, self.nao, self.nbath
         nw = len(freqs)
 
         fn = 'imp_ac_coeff.h5'
@@ -1537,7 +1565,10 @@ class DMFT(lib.StreamObject):
             nkpts_band = self.hcore_k_band.shape[1]
             gf_loc = nkpts * gf_loc
             for k in range(nkpts_band):
-                gf = get_gf(self.hcore_k_band[:,k]+self.JK_k_band[:,k], sigma+sigma_kgw_band[:,k], freqs_comp, delta_comp)
+                gf = get_gf(
+                    self.hcore_k_band[:,k]+self.JK_k_band[:,k],
+                    sigma+sigma_kgw_band[:,k], freqs_comp, delta_comp
+                )
                 gf_loc += gf
                 if rank == 0:
                     write.write_gf_to_dos(tmpdir+'/dmft_band_dos_prod_k-%d'%(k), freqs_comp, gf)

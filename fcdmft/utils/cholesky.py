@@ -1,5 +1,6 @@
-import numpy as np
 import math
+
+import numpy as np
 
 LINEAR_DEP_THR = 1e-12
 
@@ -117,8 +118,8 @@ class AOPairs():
             j = p_aopair_ind[ij,1]
             for kl in range(nkl):
                 k = q_aopair_ind[kl,0]
-                l = q_aopair_ind[kl,1]
-                out[ind] = eri[i,j,k,l]
+                kl_idx_l = q_aopair_ind[kl,1]
+                out[ind] = eri[i,j,k,kl_idx_l]
                 ind += 1
 
         return out, nij, nkl
@@ -133,8 +134,8 @@ class AOPairs():
         eri = eri.reshape(nao_l, nao, nao)
         for kl in kl_ind:
             k = kl[0]
-            l = kl[1] 
-            out[:,ind] = eri[:,k,l]
+            kl_idx_l = kl[1] 
+            out[:,ind] = eri[:,k,kl_idx_l]
             ind += 1
 
         return out, nao_l, nao_r
@@ -184,7 +185,8 @@ class cholesky():
                     ao_pair.Lpq = None
                     continue
 
-                if ind == 0: Dmax = max_diag
+                if ind == 0:
+                    Dmax = max_diag
 
                 i = ao_pair.mu
                 j = ao_pair.nu
@@ -201,7 +203,8 @@ class cholesky():
                         Q.append((i,j))
                         nq += 1
 
-            if nq == 0: break
+            if nq == 0:
+                break
             p_aopair_ind = np.asarray(D)
             q_aopair_ind = np.asarray(Q)
 
@@ -223,15 +226,18 @@ class cholesky():
 
             for p in D:
                 ao_pair = self.ao_pairs.get_aopair(p[0],p[1])
-                if ao_pair.Lpq is None: continue
+                if ao_pair.Lpq is None:
+                    continue
                 ioff = ao_pair.eri_off_ioff
                 size = 1
 
                 LL = np.zeros([size, nao_kl], dtype=np.double)
                 for ind, q in enumerate(tmp):
-                    if q[-1] < -9999: continue
+                    if q[-1] < -9999:
+                        continue
                     ao_pair_q = self.ao_pairs.get_aopair(q[0],q[1])
-                    if ao_pair_q.Lpq is None: continue
+                    if ao_pair_q.Lpq is None:
+                        continue
 
                     LL[:,ind:ind+1] = np.dot(ao_pair.Lpq, ao_pair_q.Lpq[q[2]:q[2]+1,:].T)
                 eri_offdiag[ioff:ioff+size,:] -= LL
@@ -241,7 +247,8 @@ class cholesky():
             iq = 0
             for ind in sorted_q:
                 q = tmp[ind]
-                if q[-1] < -9999: break
+                if q[-1] < -9999:
+                    break
 
                 Mpq = eri_offdiag[:,ind]
                 Mqq = -1.0

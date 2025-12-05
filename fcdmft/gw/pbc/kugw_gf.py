@@ -31,29 +31,41 @@ Method:
 Note: MPI only works for GW code (DFT should run in serial)
 '''
 
+import os
+import time
 from functools import reduce
-import time, os
+
+import h5py
 import numpy
 import numpy as np
-import h5py
-from scipy.optimize import newton, least_squares
-
+from mpi4py import MPI
 from pyscf import lib
-from pyscf.lib import logger
 from pyscf.ao2mo import _ao2mo
 from pyscf.ao2mo.incore import _conc_mos
+from pyscf.lib import logger
 from pyscf.pbc import df, dft, scf
-from pyscf.pbc.cc.kccsd_uhf import get_nocc, get_nmo, get_frozen_mask
+from pyscf.pbc.cc.kccsd_uhf import get_frozen_mask, get_nmo, get_nocc
 from pyscf.pbc.lib import chkfile
-from pyscf import __config__
+from scipy.optimize import newton
 
-from fcdmft.gw.mol.gw_ac import _get_scaled_legendre_roots, \
-        two_pole_fit, two_pole, AC_twopole_diag, thiele, pade_thiele, \
-        AC_pade_thiele_diag, AC_twopole_full, AC_pade_thiele_full
-from fcdmft.gw.pbc.kugw_ac import get_rho_response, get_rho_response_metal, get_qij, \
-        get_sigma_diag, get_rho_response_wing, get_rho_response_head
+from fcdmft.gw.mol.gw_ac import (
+    AC_pade_thiele_diag,
+    AC_pade_thiele_full,
+    AC_twopole_diag,
+    AC_twopole_full,
+    _get_scaled_legendre_roots,
+    pade_thiele,
+    two_pole,
+)
 from fcdmft.gw.pbc.krgw_gf import KRGWGF
-from mpi4py import MPI
+from fcdmft.gw.pbc.kugw_ac import (
+    get_qij,
+    get_rho_response,
+    get_rho_response_head,
+    get_rho_response_metal,
+    get_rho_response_wing,
+    get_sigma_diag,
+)
 
 rank = MPI.COMM_WORLD.Get_rank()
 size = MPI.COMM_WORLD.Get_size()
@@ -83,8 +95,8 @@ def kernel(gw, gfomega, mo_energy, mo_coeff, orbs=None,
 
     nmoa, nmob = gw.nmo
     nocca, noccb = gw.nocc
-    nvira = nmoa - nocca
-    nvirb = nmob - noccb
+    #nvira = nmoa - nocca
+    #nvirb = nmob - noccb
     mo_occ = gw.mo_occ
 
     if orbs is None:
@@ -94,7 +106,7 @@ def kernel(gw, gfomega, mo_energy, mo_coeff, orbs=None,
 
     nkpts = gw.nkpts
     nklist = len(kptlist)
-    norbs = len(orbs)
+    #norbs = len(orbs)
 
     # v_xc
     v_mf = np.array(mf.get_veff())
@@ -202,7 +214,10 @@ def kernel(gw, gfomega, mo_energy, mo_coeff, orbs=None,
                         if gw.ac == 'twopole':
                             sigma[s,kn,p,q] = two_pole(gfomega-ef+1j*eta, coeff[s,k,:,p-orbs[0],q-orbs[0]])
                         elif gw.ac == 'pade':
-                            sigma[s,kn,p,q] = pade_thiele(gfomega-ef+1j*eta, omega_fit, coeff[s,k,:,p-orbs[0],q-orbs[0]])
+                            sigma[s,kn,p,q] = pade_thiele(
+                                gfomega-ef+1j*eta, omega_fit,
+                                coeff[s,k,:,p-orbs[0],q-orbs[0]]
+                            )
                         sigma[s,kn,p,q] += vk[s,kn,p,q] - v_mf[s,kn,p,q]
     else:
         # Compute diagonal self-energy on imaginary axis i*[0,iw_cutoff]
@@ -462,7 +477,11 @@ def get_sigma_full(gw, orbs, kptlist, freqs, wts, iw_cutoff=None, max_memory=800
                     Lij_out_b = None
                     # Read (L|pq) and ao2mo transform to (L|ij)
                     Lpq = []
-                    for LpqR, LpqI, sign in mydf.sr_loop([kpti, kptj], max_memory=0.1*gw._scf.max_memory, compact=False):
+                    for LpqR, LpqI, sign in mydf.sr_loop(
+                        [kpti, kptj],
+                        max_memory=0.1*gw._scf.max_memory,
+                        compact=False
+                    ):
                         Lpq.append(LpqR+LpqI*1.0j)
                     Lpq = np.vstack(Lpq).reshape(-1,nmoa**2)
                     moija, ijslicea = _conc_mos(mo_coeff[0,i], mo_coeff[0,j])[2:]
@@ -538,8 +557,16 @@ def get_sigma_full(gw, orbs, kptlist, freqs, wts, iw_cutoff=None, max_memory=800
                         Wn_P0_b = einsum('Pnm,P->nm',Lij[1,kn],eps_inv_P0).diagonal()
                         Wn_P0_a = Wn_P0_a.real * 2.
                         Wn_P0_b = Wn_P0_b.real * 2.
-                        Del_P0_a = np.sqrt(gw.mol.vol/4./np.pi**3) * (6.*np.pi**2/gw.mol.vol/nkpts)**(2./3.) * Wn_P0_a[orbs]
-                        Del_P0_b = np.sqrt(gw.mol.vol/4./np.pi**3) * (6.*np.pi**2/gw.mol.vol/nkpts)**(2./3.) * Wn_P0_b[orbs]
+                        Del_P0_a = (
+                            np.sqrt(gw.mol.vol/4./np.pi**3) *
+                            (6.*np.pi**2/gw.mol.vol/nkpts)**(2./3.) *
+                            Wn_P0_a[orbs]
+                        )
+                        Del_P0_b = (
+                            np.sqrt(gw.mol.vol/4./np.pi**3) *
+                            (6.*np.pi**2/gw.mol.vol/nkpts)**(2./3.) *
+                            Wn_P0_b[orbs]
+                        )
                         tmp_a = -einsum('n,nw->nw',Del_P0_a,g0_a[kn][orbs]) / np.pi
                         tmp_b = -einsum('n,nw->nw',Del_P0_b,g0_b[kn][orbs]) / np.pi
                         for p in range(norbs):
@@ -685,9 +712,10 @@ class KUGWGF(KRGWGF):
 
 
 if __name__ == '__main__':
-    from pyscf.pbc import gto, dft, scf, tools
-    from pyscf.pbc.lib import chkfile
     import os
+
+    from pyscf.pbc import dft, gto, scf
+    from pyscf.pbc.lib import chkfile
     cell = gto.Cell()
     cell.build(
         unit = 'B',

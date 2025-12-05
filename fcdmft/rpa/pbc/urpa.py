@@ -26,19 +26,17 @@ Method:
     X. Ren et al., New J. Phys. 14, 053020 (2012)
 """
 
-import time, h5py, os
-from functools import reduce
-import numpy as np
+import os
+import time
 
-from pyscf import lib
-from pyscf.lib import logger
+import numpy as np
+from pyscf import df, lib, scf
 from pyscf.ao2mo import _ao2mo
-from pyscf import df, dft, scf
-from pyscf.mp.ump2 import get_nocc, get_nmo, get_frozen_mask
-from pyscf import __config__
-from fcdmft.rpa.mol.urpa import URPA, get_rpa_ecorr, \
-                get_rho_response, _mo_energy_without_core, _mo_without_core
+from pyscf.lib import logger
+from pyscf.mp.ump2 import get_frozen_mask, get_nmo, get_nocc
+
 from fcdmft.rpa.mol.rpa import _get_scaled_legendre_roots
+from fcdmft.rpa.mol.urpa import URPA, _mo_energy_without_core, _mo_without_core, get_rpa_ecorr
 
 einsum = lib.einsum
 
@@ -154,7 +152,7 @@ class URPA(URPA):
             raise NotImplementedError
 
 if __name__ == '__main__':
-    from pyscf.pbc import gto, scf, dft, df, tools
+    from pyscf.pbc import df, gto, scf, tools
     from pyscf.pbc.lib import chkfile
 
     ucell = gto.Cell()

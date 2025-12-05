@@ -1,7 +1,8 @@
 import numpy as np
 import scipy
-from pyscf.pbc.tools import k2gamma
 from pyscf import lib
+from pyscf.pbc.tools import k2gamma
+
 
 def interpolate_mf(mf, kpts_band, return_fock=True, C_ao_lo=None, w90=None, wigner_seitz=True,
                    veff=None, hcore=None, cell=None, dm=None, kpts=None):
@@ -21,11 +22,16 @@ def interpolate_mf(mf, kpts_band, return_fock=True, C_ao_lo=None, w90=None, wign
             Band orbitals psi_n(k)
         fock_band_lo : (nkpts_band, nbands, nbands)
     '''
-    if cell is None: cell = mf.cell
-    if dm is None: dm = mf.make_rdm1()
-    if kpts is None: kpts = mf.kpts
-    if veff is None: veff = np.array(mf.get_veff(cell, dm, kpts=kpts))
-    if hcore is None: hcore = np.array(mf.get_hcore(cell, kpts))
+    if cell is None:
+        cell = mf.cell
+    if dm is None:
+        dm = mf.make_rdm1()
+    if kpts is None:
+        kpts = mf.kpts
+    if veff is None:
+        veff = np.array(mf.get_veff(cell, dm, kpts=kpts))
+    if hcore is None:
+        hcore = np.array(mf.get_hcore(cell, kpts))
 
     kpts_band = np.asarray(kpts_band)
     kpts_band = kpts_band.reshape(-1,3)
@@ -99,10 +105,14 @@ def interpolate_hf_diff(mf, kpts_band, fock_dft_band, mo_interpolate=False, mo_e
             Band orbitals psi_n(k)
         fock_band_lo : (nkpts_band, nbands, nbands)
     '''
-    if cell is None: cell = mf.cell
-    if dm is None: dm = mf.make_rdm1()
-    if kpts is None: kpts = mf.kpts
-    if veff is None: veff = np.array(mf.get_veff(cell, dm, kpts=kpts))
+    if cell is None:
+        cell = mf.cell
+    if dm is None:
+        dm = mf.make_rdm1()
+    if kpts is None:
+        kpts = mf.kpts
+    if veff is None:
+        veff = np.array(mf.get_veff(cell, dm, kpts=kpts))
 
     kpts_band = np.asarray(kpts_band)
     kpts_band = kpts_band.reshape(-1,3)
@@ -212,8 +222,10 @@ def interpolate_selfenergy(mf, kpts_band, sigma, C_ao_lo=None, w90=None, wigner_
     Returns:
         sigma_band_lo : (nkpts_band, nlo, nlo, nw), self-energy in LO basis at kpts_band
     '''
-    if cell is None: cell = mf.cell
-    if kpts is None: kpts = mf.kpts
+    if cell is None:
+        cell = mf.cell
+    if kpts is None:
+        kpts = mf.kpts
 
     kpts_band = np.asarray(kpts_band)
     kpts_band = kpts_band.reshape(-1,3)
@@ -269,9 +281,12 @@ def get_bands(mf, kpts_band, cell=None, dm_kpts=None, kpts=None):
         mo_coeff : (nao, nmo) ndarray or a list of (nao,nmo) ndarray
             Band orbitals psi_n(k)
     '''
-    if cell is None: cell = mf.cell
-    if dm_kpts is None: dm_kpts = mf.make_rdm1()
-    if kpts is None: kpts = mf.kpts
+    if cell is None:
+        cell = mf.cell
+    if dm_kpts is None:
+        dm_kpts = mf.make_rdm1()
+    if kpts is None:
+        kpts = mf.kpts
 
     kpts_band = np.asarray(kpts_band)
     kpts_band = kpts_band.reshape(-1,3)
@@ -336,7 +351,8 @@ def get_wigner_seitz_supercell(w90, ws_search_size=[2,2,2], ws_distance_tol=1e-6
                     temp = temp + 1
             ndegen.append(temp)
             irvec.append(n.tolist())
-            if (n**2).sum() < 1.e-10: rpt_origin = nrpts
+            if (n**2).sum() < 1.e-10:
+                rpt_origin = nrpts
             nrpts = nrpts + 1
 
     irvec = np.asarray(irvec)
@@ -349,13 +365,14 @@ def get_wigner_seitz_supercell(w90, ws_search_size=[2,2,2], ws_distance_tol=1e-6
     return ndegen, irvec, rpt_origin
 
 if __name__ == '__main__':
-    import numpy as np
-    from pyscf.pbc import df, gto, dft, scf
-    from pyscf.pbc.lib import chkfile
     import os
+
     import matplotlib.pyplot as plt
-    from ase.lattice import bulk
-    from ase.dft.kpoints import sc_special_points as special_points, get_bandpath
+    import numpy as np
+    from ase.dft.kpoints import get_bandpath
+    from ase.dft.kpoints import sc_special_points as special_points
+    from pyscf.pbc import df, dft, gto
+    from pyscf.pbc.lib import chkfile
 
     cell = gto.Cell()
     cell.build(unit = 'angstrom',
@@ -453,8 +470,8 @@ if __name__ == '__main__':
     plt.savefig('diamond_444_lda_wannier.png',dpi=600)
 
     ### Test IAO+PAO interpolation ###
-    from libdmet_solid.system import lattice
     from libdmet_solid.basis_transform import make_basis
+    from libdmet_solid.system import lattice
 
     Lat = lattice.Lattice(cell, kmesh)
     MINAO = {'C':'gth-szv'}

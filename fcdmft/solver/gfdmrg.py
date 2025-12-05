@@ -27,32 +27,101 @@ Revised: support for mpi
      Huanchen Zhai, Tianyu Zhu Mar 29, 2021
 """
 
-from block2 import SU2, SZ, Global, OpNamesSet, Threading, ThreadingTypes
-from block2 import init_memory, release_memory, SiteIndex, ConvergenceTypes
-from block2 import VectorUInt8, PointGroup, FCIDUMP, QCTypes, SeqTypes, OpNames, Random
-from block2 import VectorUBond, VectorDouble, NoiseTypes, DecompositionTypes, EquationTypes
-from block2 import OrbitalOrdering, VectorUInt16, ExpectationAlgorithmTypes
 import time
+
 import numpy as np
+from block2 import (
+    FCIDUMP,
+    SU2,
+    SZ,
+    ConvergenceTypes,
+    DecompositionTypes,
+    EquationTypes,
+    ExpectationAlgorithmTypes,
+    Global,
+    NoiseTypes,
+    OpNames,
+    OpNamesSet,
+    OrbitalOrdering,
+    PointGroup,
+    QCTypes,
+    Random,
+    SeqTypes,
+    SiteIndex,
+    Threading,
+    ThreadingTypes,
+    VectorDouble,
+    VectorUBond,
+    VectorUInt8,
+    VectorUInt16,
+    init_memory,
+    release_memory,
+)
 
 # Set spin-adapted or non-spin-adapted here
 SpinLabel = SU2
 #SpinLabel = SZ
 
 if SpinLabel == SU2:
-    from block2.su2 import HamiltonianQC, SimplifiedMPO, Rule, RuleQC, MPOQC
-    from block2.su2 import MPSInfo, MPS, MovingEnvironment, DMRG, Linear, IdentityMPO
-    from block2.su2 import CASCIMPSInfo, MRCIMPSInfo, ParallelRuleNPDMQC
-    from block2.su2 import OpElement, SiteMPO, NoTransposeRule, PDM1MPOQC, Expect
-    from block2.su2 import VectorOpElement, LocalMPO, VectorMPS, VectorMovingEnvironment
-    from block2.su2 import MPICommunicator, DeterminantTRIE, UnfusedMPS, PDM2MPOQC, ParallelRulePDM2QC, ParallelRulePDM1QC
+    from block2.su2 import (
+        DMRG,
+        MPOQC,
+        MPS,
+        PDM1MPOQC,
+        PDM2MPOQC,
+        CASCIMPSInfo,
+        DeterminantTRIE,
+        Expect,
+        HamiltonianQC,
+        IdentityMPO,
+        Linear,
+        LocalMPO,
+        MovingEnvironment,
+        MPICommunicator,
+        MPSInfo,
+        MRCIMPSInfo,
+        NoTransposeRule,
+        OpElement,
+        ParallelRulePDM1QC,
+        ParallelRulePDM2QC,
+        RuleQC,
+        SimplifiedMPO,
+        SiteMPO,
+        UnfusedMPS,
+        VectorMovingEnvironment,
+        VectorMPS,
+        VectorOpElement,
+    )
 else:
-    from block2.sz import HamiltonianQC, SimplifiedMPO, Rule, RuleQC, MPOQC
-    from block2.sz import MPSInfo, MPS, MovingEnvironment, DMRG, Linear, IdentityMPO
-    from block2.sz import CASCIMPSInfo, MRCIMPSInfo, ParallelRuleNPDMQC
-    from block2.sz import OpElement, SiteMPO, NoTransposeRule, PDM1MPOQC, Expect
-    from block2.sz import VectorOpElement, LocalMPO, VectorMPS, VectorMovingEnvironment
-    from block2.sz import MPICommunicator, DeterminantTRIE, UnfusedMPS, PDM2MPOQC, ParallelRulePDM2QC, ParallelRulePDM1QC
+    from block2.sz import (
+        DMRG,
+        MPOQC,
+        MPS,
+        PDM1MPOQC,
+        PDM2MPOQC,
+        CASCIMPSInfo,
+        DeterminantTRIE,
+        Expect,
+        HamiltonianQC,
+        IdentityMPO,
+        Linear,
+        LocalMPO,
+        MovingEnvironment,
+        MPICommunicator,
+        MPSInfo,
+        MRCIMPSInfo,
+        NoTransposeRule,
+        OpElement,
+        ParallelRulePDM1QC,
+        ParallelRulePDM2QC,
+        RuleQC,
+        SimplifiedMPO,
+        SiteMPO,
+        UnfusedMPS,
+        VectorMovingEnvironment,
+        VectorMPS,
+        VectorOpElement,
+    )
 
 MPI = MPICommunicator()
 
@@ -179,11 +248,9 @@ class GFDMRG:
 
         if mpi is not None:
             if SpinLabel == SU2:
-                from block2.su2 import ParallelRuleQC, ParallelRuleNPDMQC, ParallelRuleSiteQC
-                from block2.su2 import ParallelRuleSiteQC, ParallelRuleIdentity
+                from block2.su2 import ParallelRuleIdentity, ParallelRuleNPDMQC, ParallelRuleQC, ParallelRuleSiteQC
             else:
-                from block2.sz import ParallelRuleQC, ParallelRuleNPDMQC
-                from block2.sz import ParallelRuleSiteQC, ParallelRuleIdentity
+                from block2.sz import ParallelRuleIdentity, ParallelRuleNPDMQC, ParallelRuleQC, ParallelRuleSiteQC
             self.prule = ParallelRuleQC(mpi)
             self.pdm1rule = ParallelRulePDM1QC(mpi)
             self.pdm2rule = ParallelRulePDM2QC(mpi)
@@ -617,9 +684,9 @@ class GFDMRG:
         return dm
 
     def save_gs_mps(self, save_dir='./gs_mps'):
-        import shutil
-        import pickle
         import os
+        import pickle
+        import shutil
         if self.mpi.rank == 0:
             pickle.dump(self.gs_energy, open(
                 self.scratch + '/GS_ENERGY', 'wb'))
@@ -629,9 +696,9 @@ class GFDMRG:
         self.mpi.barrier()
 
     def load_gs_mps(self, load_dir='./gs_mps'):
-        import shutil
-        import pickle
         import os
+        import pickle
+        import shutil
         if self.mpi.rank == 0:
             for k in os.listdir(load_dir):
                 shutil.copy(load_dir + "/" + k, self.scratch + "/" + k)
@@ -812,7 +879,9 @@ class GFDMRG:
                 # the mpo and gf are in the same basis
                 # the mpo is SiteMPO
                 rmpos[ii] = SimplifiedMPO(
-                    SiteMPO(self.hamil, ops[ii]), NoTransposeRule(RuleQC()), True, True, OpNamesSet((OpNames.R, OpNames.RD)))
+                    SiteMPO(self.hamil, ops[ii]),
+                    NoTransposeRule(RuleQC()), True, True, OpNamesSet((OpNames.R, OpNames.RD))
+                )
             else:
                 # the mpo is in mo basis and gf is in ao basis
                 # the mpo is sum of SiteMPO (LocalMPO)
@@ -820,7 +889,9 @@ class GFDMRG:
                 for ix in range(self.n_sites):
                     ao_ops[ix] = ops[ix] * mo_coeff[idx, ix]
                 rmpos[ii] = SimplifiedMPO(
-                    LocalMPO(self.hamil, ao_ops), NoTransposeRule(RuleQC()), True, True, OpNamesSet((OpNames.R, OpNames.RD)))
+                    LocalMPO(self.hamil, ao_ops),
+                    NoTransposeRule(RuleQC()), True, True, OpNamesSet((OpNames.R, OpNames.RD))
+                )
 
             if self.mpi is not None:
                 rmpos[ii] = ParallelMPO(rmpos[ii], self.siterule)
@@ -862,7 +933,9 @@ class GFDMRG:
         def debug_info(info):
             mrank = 0 if self.mpi is None else self.mpi.rank
             msize = 1 if self.mpi is None else self.mpi.size
-            import psutil, os
+            import os
+
+            import psutil
             mem = psutil.Process(os.getpid()).memory_info().rss
             for ir in range(msize):
                 if self.mpi is not None:
@@ -1291,7 +1364,7 @@ def dmrg_mo_gf(mf, freqs, delta, ao_orbs=None, mo_orbs=None, gmres_tol=1E-7, add
         gfmat : np.ndarray of dims (len(mo_orbs), len(mo_orbs), len(freqs)) (complex)
             GF matrix in the MO basis (for selected mo_orbs).
     '''
-    from pyscf import lib, lo, symm, ao2mo
+    from pyscf import ao2mo, lo
     assert ao_orbs is None or mo_orbs is None
 
     if mpi is not None:
@@ -1484,7 +1557,7 @@ def dmrg_mo_pdm(mf, ao_orbs=None, mo_orbs=None, n_threads=8, memory=1E9, verbose
         pdm : np.ndarray of dims (len(mo_orbs), len(mo_orbs)) (real)
             density matrix in the MO or AO basis (for selected mo_orbs).
     '''
-    from pyscf import lib, lo, symm, ao2mo
+    from pyscf import ao2mo, lo
     assert ao_orbs is None or mo_orbs is None
 
     if mpi is not None:

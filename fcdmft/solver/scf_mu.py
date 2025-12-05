@@ -105,16 +105,15 @@ class UHF(scf.uhf.UHF):
         if dm is None: dm = self.make_rdm1()
         if self._eri is not None or mol.incore_anyway or self._is_mem_enough():
             if self._eri is None:
-                log.error("SCF eri is not initialized.")
+                logger.error("SCF eri is not initialized.")
                 self._eri = mol.intor('int2e', aosym='s8')
 
             #vj, vk = hf.dot_eri_dm(self._eri, dm, hermi, with_j, with_k)
             vj, vk = _get_jk(dm, self._eri)
         else:
-            log.error("Direct SCF not implemented")
-            vj, vk = hf.SCF.get_jk(self, mol, dm, hermi, with_j, with_k)
+            logger.error("Direct SCF not implemented")
+            vj, vk = scf.hf.SCF.get_jk(self, mol, dm, hermi, with_j, with_k)
         return vj, vk
-
     def energy_elec(self, dm=None, h1e=None, vhf=None):
         if dm is None: dm = self.make_rdm1()
         if h1e is None:
@@ -156,13 +155,13 @@ class UHFNOMU(scf.uhf.UHF):
         if dm is None: dm = self.make_rdm1()
         if self._eri is not None or mol.incore_anyway or self._is_mem_enough():
             if self._eri is None:
-                log.error("SCF eri is not initialized.")
+                logger.error("SCF eri is not initialized.")
                 self._eri = mol.intor('int2e', aosym='s8')
 
             #vj, vk = hf.dot_eri_dm(self._eri, dm, hermi, with_j, with_k)
             vj, vk = _get_jk(dm, self._eri)
         else:
-            log.error("Direct SCF not implemented")
+            logger.error("Direct SCF not implemented")
             vj, vk = hf.SCF.get_jk(self, mol, dm, hermi, with_j, with_k)
         return vj, vk
 

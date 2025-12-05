@@ -1,14 +1,13 @@
-import time
 import sys
+import time
 
 import numpy as np
-import scipy
-from fcdmft.solver import gmres
-
 import pyscf
 import pyscf.cc
+from pyscf.cc.eom_rccsd import amplitudes_to_vector_ea, amplitudes_to_vector_ip
 from pyscf.lib import logger
-from pyscf.cc.eom_rccsd import amplitudes_to_vector_ip, amplitudes_to_vector_ea
+
+from fcdmft.solver import gmres
 
 '''
 CCSD Green's function

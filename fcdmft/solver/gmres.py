@@ -21,7 +21,6 @@ class GMRES(object):
             self.M = spla.LinearOperator((n,n), matvec=Mx)
 
     def solve(self):
-        callback = None
         self.niter = 0
         def callback(rk):
             #print ("residual =", rk)
@@ -40,7 +39,7 @@ def setA(size, plus):
     A = np.zeros(shape=(size,size),dtype=complex)
     diag = np.zeros(shape=(size),dtype=complex)
     fac = 1.0
-    for i in xrange(size):
+    for i in range(size):
       A[i,i] = 1.0 * fac + 6.0 * 1j * fac + plus + 30.*np.random.random()
       diag[i] = A[i,i] 
       if i+2 < size:
@@ -62,7 +61,7 @@ def main():
     x0 += 1./1.*(np.random.rand(size) + 0j*np.random.rand(size))
     condition_number = np.linalg.cond(A)
     res = np.linalg.norm(b-np.dot(A,x0))
-    finalx = np.dot(np.linalg.inv(A), b)
+    #finalx = np.dot(np.linalg.inv(A), b)
     print (" ::: Making A,b matrix :::")
     print ("  - condition number = %12.8f" % condition_number)
     print ("  - x0 residual      = %12.8f" % np.real(res))

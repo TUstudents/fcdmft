@@ -26,16 +26,14 @@ Method:
     X. Ren et al., New J. Phys. 14, 053020 (2012)
 """
 
-import time, h5py
-from functools import reduce
-import numpy as np
+import time
 
-from pyscf import lib
-from pyscf.lib import logger
+import numpy as np
+from pyscf import dft, lib, scf
 from pyscf.ao2mo import _ao2mo
-from pyscf import df, dft, scf
-from pyscf.mp.ump2 import get_nocc, get_nmo, get_frozen_mask
-from pyscf import __config__
+from pyscf.lib import logger
+from pyscf.mp.ump2 import get_frozen_mask, get_nmo, get_nocc
+
 from fcdmft.rpa.mol.rpa import RPA, _get_scaled_legendre_roots
 
 einsum = lib.einsum
@@ -236,7 +234,7 @@ class URPA(RPA):
 
 
 if __name__ == '__main__':
-    from pyscf import gto, dft, scf
+    from pyscf import dft, gto, scf
     mol = gto.Mole()
     mol.verbose = 5
     mol.atom = 'F 0 0 0'

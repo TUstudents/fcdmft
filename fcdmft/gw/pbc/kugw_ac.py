@@ -29,26 +29,30 @@ Method:
     Gaussian density fitting must be used (FFTDF and MDF are not supported).
 '''
 
-from functools import reduce
+import os
 import time
+from functools import reduce
+
+import h5py
 import numpy
 import numpy as np
-import h5py, os
-from scipy.optimize import newton, least_squares
-
+from mpi4py import MPI
 from pyscf import lib
-from pyscf.lib import logger
 from pyscf.ao2mo import _ao2mo
 from pyscf.ao2mo.incore import _conc_mos
+from pyscf.lib import logger
 from pyscf.pbc import df, dft, scf
-from pyscf.pbc.cc.kccsd_uhf import get_nocc, get_nmo, get_frozen_mask
-from pyscf import __config__
+from pyscf.pbc.cc.kccsd_uhf import get_frozen_mask, get_nmo, get_nocc
+from scipy.optimize import newton
 
+from fcdmft.gw.mol.gw_ac import (
+    AC_pade_thiele_diag,
+    AC_twopole_diag,
+    _get_scaled_legendre_roots,
+    pade_thiele,
+    two_pole,
+)
 from fcdmft.gw.pbc.krgw_ac import KRGWAC
-from fcdmft.gw.mol.gw_ac import _get_scaled_legendre_roots, \
-        two_pole_fit, two_pole, AC_twopole_diag, thiele, pade_thiele, \
-        AC_pade_thiele_diag
-from mpi4py import MPI
 
 rank = MPI.COMM_WORLD.Get_rank()
 size = MPI.COMM_WORLD.Get_size()
@@ -74,8 +78,8 @@ def kernel(gw, mo_energy, mo_coeff, orbs=None,
 
     nmoa, nmob = gw.nmo
     nocca, noccb = gw.nocc
-    nvira = nmoa - nocca
-    nvirb = nmob - noccb
+    #nvira = nmoa - nocca
+    #nvirb = nmob - noccb
     mo_occ = gw.mo_occ
 
     if orbs is None:
@@ -85,7 +89,6 @@ def kernel(gw, mo_energy, mo_coeff, orbs=None,
 
     nkpts = gw.nkpts
     nklist = len(kptlist)
-    norbs = len(orbs)
 
     # v_xc
     dm = np.array(mf.make_rdm1())
@@ -121,7 +124,8 @@ def kernel(gw, mo_energy, mo_coeff, orbs=None,
         assert(gw.ef)
         ef = gw.ef
     else:
-        homo = -99.; lumo = 99.
+        homo = -99.
+        lumo = 99.
         for k in range(nkpts):
             if homo < max(mo_energy[0,k][nocca-1],mo_energy[1,k][noccb-1]):
                 homo = max(mo_energy[0,k][nocca-1],mo_energy[1,k][noccb-1])
@@ -146,16 +150,19 @@ def kernel(gw, mo_energy, mo_coeff, orbs=None,
     sigmaI, omega = get_sigma_diag(gw, orbs, kptlist, freqs, wts, iw_cutoff=5.)
 
     # Analytic continuation
-    coeff = None; omega_fit = None
+    coeff = None
+    omega_fit = None
     if rank == 0:
-        coeff_a = []; coeff_b = []
+        coeff_a = []
+        coeff_b = []
         if gw.ac == 'twopole':
             for k in range(nklist):
                 coeff_a.append(AC_twopole_diag(sigmaI[0,k], omega, orbs, nocca))
                 coeff_b.append(AC_twopole_diag(sigmaI[1,k], omega, orbs, noccb))
         elif gw.ac == 'pade':
             if is_metal:
-                nk_pade = 18; ratio_pade = 5./6.
+                nk_pade = 18
+                ratio_pade = 5./6.
                 for k in range(nklist):
                     coeff_a_tmp, omega_fit_a = AC_pade_thiele_diag(sigmaI[0,k], omega,
                                                        npts=nk_pade, step_ratio=ratio_pade)
@@ -308,7 +315,8 @@ def get_sigma_diag(gw, orbs, kptlist, freqs, wts, iw_cutoff=None, max_memory=800
         assert(gw.ef)
         ef = gw.ef
     else:
-        homo = -99.; lumo = 99.
+        homo = -99.
+        lumo = 99.
         for k in range(nkpts):
             if homo < max(mo_energy[0,k][nocca-1],mo_energy[1,k][noccb-1]):
                 homo = max(mo_energy[0,k][nocca-1],mo_energy[1,k][noccb-1])
@@ -323,7 +331,8 @@ def get_sigma_diag(gw, orbs, kptlist, freqs, wts, iw_cutoff=None, max_memory=800
         nw_sigma = nw + 1
 
     omega = np.zeros((nw_sigma),dtype=np.complex128)
-    omega[0] = 1j*0.; omega[1:] = 1j*freqs[:(nw_sigma-1)]
+    omega[0] = 1j*0.
+    omega[1:] = 1j*freqs[:(nw_sigma-1)]
     emo_a = np.zeros((nkpts,nmoa,nw_sigma),dtype=np.complex128)
     emo_b = np.zeros((nkpts,nmob,nw_sigma),dtype=np.complex128)
     for k in range(nkpts):
@@ -411,7 +420,11 @@ def get_sigma_diag(gw, orbs, kptlist, freqs, wts, iw_cutoff=None, max_memory=800
                     Lij_out_b = None
                     # Read (L|pq) and ao2mo transform to (L|ij)
                     Lpq = []
-                    for LpqR, LpqI, sign in mydf.sr_loop([kpti, kptj], max_memory=0.1*gw._scf.max_memory, compact=False):
+                    for LpqR, LpqI, sign in mydf.sr_loop(
+                        [kpti, kptj],
+                        max_memory=0.1*gw._scf.max_memory,
+                        compact=False
+                    ):
                         Lpq.append(LpqR+LpqI*1.0j)
                     Lpq = np.vstack(Lpq).reshape(-1,nmoa**2)
                     moija, ijslicea = _conc_mos(mo_coeff[0,i], mo_coeff[0,j])[2:]
@@ -480,8 +493,16 @@ def get_sigma_diag(gw, orbs, kptlist, freqs, wts, iw_cutoff=None, max_memory=800
                         Wn_P0_b = einsum('Pnm,P->nm',Lij[1,kn],eps_inv_P0).diagonal()
                         Wn_P0_a = Wn_P0_a.real * 2.
                         Wn_P0_b = Wn_P0_b.real * 2.
-                        Del_P0_a = np.sqrt(gw.mol.vol/4./np.pi**3) * (6.*np.pi**2/gw.mol.vol/nkpts)**(2./3.) * Wn_P0_a[orbs]
-                        Del_P0_b = np.sqrt(gw.mol.vol/4./np.pi**3) * (6.*np.pi**2/gw.mol.vol/nkpts)**(2./3.) * Wn_P0_b[orbs]
+                        Del_P0_a = (
+                            np.sqrt(gw.mol.vol/4./np.pi**3) *
+                            (6.*np.pi**2/gw.mol.vol/nkpts)**(2./3.) *
+                            Wn_P0_a[orbs]
+                        )
+                        Del_P0_b = (
+                            np.sqrt(gw.mol.vol/4./np.pi**3) *
+                            (6.*np.pi**2/gw.mol.vol/nkpts)**(2./3.) *
+                            Wn_P0_b[orbs]
+                        )
                         sigma[0,k] += -einsum('n,nw->nw',Del_P0_a,g0_a[kn][orbs]) / np.pi
                         sigma[1,k] += -einsum('n,nw->nw',Del_P0_b,g0_b[kn][orbs]) / np.pi
         else:
@@ -690,9 +711,10 @@ class KUGWAC(KRGWAC):
         return self.mo_energy
 
 if __name__ == '__main__':
-    from pyscf.pbc import gto, dft, scf
-    from pyscf.pbc.lib import chkfile
     import os
+
+    from pyscf.pbc import dft, gto, scf
+    from pyscf.pbc.lib import chkfile
     cell = gto.Cell()
     cell.build(
         unit = 'B',

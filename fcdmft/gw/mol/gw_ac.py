@@ -32,17 +32,15 @@ Other useful references:
     New J. Phys. 14, 053020 (2012)
 """
 
-import time, h5py
+import time
 from functools import reduce
-import numpy as np
-from scipy.optimize import newton, least_squares
 
-from pyscf import lib
-from pyscf.lib import logger
+import numpy as np
+from pyscf import __config__, df, dft, lib, scf
 from pyscf.ao2mo import _ao2mo
-from pyscf import df, dft, scf
-from pyscf.mp.mp2 import get_nocc, get_nmo, get_frozen_mask
-from pyscf import __config__
+from pyscf.lib import logger
+from pyscf.mp.mp2 import get_frozen_mask, get_nmo, get_nocc
+from scipy.optimize import least_squares, newton
 
 einsum = lib.einsum
 
@@ -85,7 +83,7 @@ def kernel(gw, mo_energy, mo_coeff, Lpq=None, orbs=None,
 
     nmo  = gw.nmo
     nocc = gw.nocc
-    nvir = nmo - nocc
+    #nvir = nmo - nocc
 
     # v_hf from DFT/HF density
     if vhf_df and gw.frozen is None:
@@ -179,7 +177,7 @@ def get_sigma_diag(gw, orbs, Lpq, freqs, wts, iw_cutoff=None):
     """
     mo_energy = _mo_energy_without_core(gw, gw._scf.mo_energy)
     nocc = gw.nocc
-    nmo = gw.nmo
+    #nmo = gw.nmo
     nw = len(freqs)
     naux = Lpq.shape[0]
     norbs = len(orbs)
@@ -472,7 +470,7 @@ class GWAC(lib.StreamObject):
             else:
                 try:
                     self.with_df.auxbasis = df.make_auxbasis(mf.mol, mp2fit=True)
-                except:
+                except Exception:
                     self.with_df.auxbasis = df.make_auxbasis(mf.mol, mp2fit=False)
         self._keys.update(['with_df'])
 
@@ -555,7 +553,7 @@ class GWAC(lib.StreamObject):
         if mo_coeff is None:
             mo_coeff = self.mo_coeff
         nmo = self.nmo
-        nao = self.mo_coeff.shape[0]
+        #nao = self.mo_coeff.shape[0]
         naux = self.with_df.get_naoaux()
         mem_incore = (2 * nmo**2*naux) * 8 / 1e6
         mem_now = lib.current_memory()[0]
@@ -571,7 +569,7 @@ class GWAC(lib.StreamObject):
             raise NotImplementedError
 
 if __name__ == '__main__':
-    from pyscf import gto, dft, scf
+    from pyscf import dft, gto, scf
     mol = gto.Mole()
     mol.verbose = 5
     mol.atom = [

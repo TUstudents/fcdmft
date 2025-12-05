@@ -26,25 +26,27 @@ Method:
     X. Ren et al., New J. Phys. 14, 053020 (2012)
 '''
 
-from functools import reduce
-import time, h5py, os
-import numpy
-import numpy as np
-from scipy.optimize import newton, least_squares
+import os
+import time
 
+import numpy as np
+from mpi4py import MPI
 from pyscf import lib
-from pyscf.lib import logger
 from pyscf.ao2mo import _ao2mo
 from pyscf.ao2mo.incore import _conc_mos
+from pyscf.lib import logger
 from pyscf.pbc import df, dft, scf
-from pyscf.pbc.cc.kccsd_uhf import get_nocc, get_nmo, get_frozen_mask
-from pyscf import __config__
+from pyscf.pbc.cc.kccsd_uhf import get_frozen_mask, get_nmo, get_nocc
 
 from fcdmft.gw.mol.gw_ac import _get_scaled_legendre_roots
-from fcdmft.gw.pbc.kugw_ac import get_rho_response, get_rho_response_metal, \
-                get_rho_response_head, get_rho_response_wing, get_qij
+from fcdmft.gw.pbc.kugw_ac import (
+    get_qij,
+    get_rho_response,
+    get_rho_response_head,
+    get_rho_response_metal,
+    get_rho_response_wing,
+)
 from fcdmft.rpa.pbc.krpa import KRPA
-from mpi4py import MPI
 
 rank = MPI.COMM_WORLD.Get_rank()
 size = MPI.COMM_WORLD.Get_size()
@@ -66,9 +68,9 @@ def kernel(rpa, mo_energy, mo_coeff, nw=None, verbose=logger.NOTE):
 
     nmoa, nmob = rpa.nmo
     nocca, noccb = rpa.nocc
-    nvira = nmoa - nocca
-    nvirb = nmob - noccb
-    nkpts = rpa.nkpts
+    #nvira = nmoa - nocca
+    #nvirb = nmob - noccb
+    #nkpts = rpa.nkpts
 
     # Compute HF exchange energy (EXX)
     dm = mf.make_rdm1()
@@ -177,7 +179,11 @@ def get_rpa_ecorr(rpa, freqs, wts, max_memory=8000):
                     Lij_out_b = None
                     # Read (L|pq) and ao2mo transform to (L|ij)
                     Lpq = []
-                    for LpqR, LpqI, sign in mydf.sr_loop([kpti, kptj], max_memory=0.1*rpa._scf.max_memory, compact=False):
+                    for LpqR, LpqI, sign in mydf.sr_loop(
+                        [kpti, kptj],
+                        max_memory=0.1*rpa._scf.max_memory,
+                        compact=False
+                    ):
                         Lpq.append(LpqR+LpqI*1.0j)
                     Lpq = np.vstack(Lpq).reshape(-1,nmoa**2)
                     moija, ijslicea = _conc_mos(mo_coeff[0,i], mo_coeff[0,j])[2:]
@@ -320,9 +326,10 @@ class KURPA(KRPA):
         return self.e_tot, self.e_hf, self.e_corr
 
 if __name__ == '__main__':
-    from pyscf.pbc import gto, dft, scf
-    from pyscf.pbc.lib import chkfile
     import os
+
+    from pyscf.pbc import dft, gto, scf
+    from pyscf.pbc.lib import chkfile
     cell = gto.Cell()
     cell.build(
         unit = 'B',

@@ -26,24 +26,26 @@ Method:
     X. Ren et al., New J. Phys. 14, 053020 (2012)
 '''
 
-from functools import reduce
-import time, h5py, os
-import numpy
-import numpy as np
-from scipy.optimize import newton, least_squares
+import os
+import time
 
-from pyscf import lib
-from pyscf.lib import logger
+import numpy as np
+from mpi4py import MPI
+from pyscf import __config__, lib
 from pyscf.ao2mo import _ao2mo
 from pyscf.ao2mo.incore import _conc_mos
+from pyscf.lib import logger
 from pyscf.pbc import df, dft, scf
-from pyscf.pbc.mp.kmp2 import get_nocc, get_nmo, get_frozen_mask
-from pyscf import __config__
+from pyscf.pbc.mp.kmp2 import get_frozen_mask, get_nmo, get_nocc
 
 from fcdmft.gw.mol.gw_ac import _get_scaled_legendre_roots
-from fcdmft.gw.pbc.krgw_ac import get_rho_response, get_rho_response_metal, \
-                get_rho_response_head, get_rho_response_wing, get_qij
-from mpi4py import MPI
+from fcdmft.gw.pbc.krgw_ac import (
+    get_qij,
+    get_rho_response,
+    get_rho_response_head,
+    get_rho_response_metal,
+    get_rho_response_wing,
+)
 
 rank = MPI.COMM_WORLD.Get_rank()
 size = MPI.COMM_WORLD.Get_size()
@@ -63,10 +65,8 @@ def kernel(rpa, mo_energy, mo_coeff, nw=None, verbose=logger.NOTE):
     mf = rpa._scf
     assert(rpa.frozen == 0)
 
-    nkpts = rpa.nkpts
     nocc = rpa.nocc
     nmo = rpa.nmo
-    nvir = nmo-nocc
     mo_occ = rpa.mo_occ
 
     # Compute HF exchange energy (EXX)
@@ -81,9 +81,7 @@ def kernel(rpa, mo_energy, mo_coeff, nw=None, verbose=logger.NOTE):
 
     # check metal
     mo_occ_1d = np.array(mo_occ).reshape(-1)
-    is_metal = False
     if np.linalg.norm(np.abs(mo_occ_1d - 1.) - 1.) > 1e-5:
-        is_metal = True
         if rpa.fc:
             if rank == 0:
                 logger.warn(rpa, 'FC not available for metals - setting rpa.fc to False')
@@ -183,7 +181,11 @@ def get_rpa_ecorr(rpa, freqs, wts, max_memory=8000):
                     Lij_out = None
                     # Read (L|pq) and ao2mo transform to (L|ij)
                     Lpq = []
-                    for LpqR, LpqI, sign in mydf.sr_loop([kpti, kptj], max_memory=0.1*rpa._scf.max_memory, compact=False):
+                    for LpqR, LpqI, sign in mydf.sr_loop(
+                        [kpti, kptj],
+                        max_memory=0.1*rpa._scf.max_memory,
+                        compact=False
+                    ):
                         Lpq.append(LpqR+LpqI*1.0j)
                     # support uneqaul naux on different k points
                     Lpq = np.vstack(Lpq).reshape(-1,nmo**2)
@@ -355,9 +357,10 @@ class KRPA(lib.StreamObject):
         return self.e_tot, self.e_hf, self.e_corr
 
 if __name__ == '__main__':
-    from pyscf.pbc import gto, dft, scf
-    from pyscf.pbc.lib import chkfile
     import os
+
+    from pyscf.pbc import dft, gto, scf
+    from pyscf.pbc.lib import chkfile
     # This test takes a few minutes
     # Test on diamond
     cell = gto.Cell()

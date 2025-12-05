@@ -32,23 +32,32 @@ Other useful references:
     New J. Phys. 14, 053020 (2012)
 """
 
-import time, h5py
+import time
 from functools import reduce
+
 import numpy
 import numpy as np
-from scipy.optimize import newton, least_squares
-
-from pyscf import lib
-from pyscf.lib import logger
+from pyscf import __config__, dft, lib, scf
 from pyscf.ao2mo import _ao2mo
-from pyscf import df, dft, scf
-from pyscf.mp.mp2 import get_nocc, get_nmo, get_frozen_mask
-from pyscf import __config__
-from fcdmft.gw.mol.gw_ac import _get_scaled_legendre_roots, \
-        two_pole_fit, two_pole, AC_twopole_diag, thiele, pade_thiele, \
-        AC_pade_thiele_diag, GWAC, get_sigma_diag, \
-        AC_twopole_full, AC_pade_thiele_full, as_scanner, \
-        _mo_energy_without_core, _mo_without_core, get_rho_response
+from pyscf.lib import logger
+from pyscf.mp.mp2 import get_frozen_mask, get_nmo, get_nocc
+from scipy.optimize import newton
+
+from fcdmft.gw.mol.gw_ac import (
+    GWAC,
+    AC_pade_thiele_diag,
+    AC_pade_thiele_full,
+    AC_twopole_diag,
+    AC_twopole_full,
+    _get_scaled_legendre_roots,
+    _mo_energy_without_core,
+    _mo_without_core,
+    as_scanner,
+    get_rho_response,
+    get_sigma_diag,
+    pade_thiele,
+    two_pole,
+)
 
 einsum = lib.einsum
 
@@ -87,7 +96,7 @@ def kernel(gw, gfomega, mo_energy, mo_coeff, Lpq=None, orbs=None,
 
     nmo  = gw.nmo
     nocc = gw.nocc
-    nvir = nmo - nocc
+    #nvir = nmo - nocc
 
     # v_hf from DFT/HF density
     if vhf_df and gw.frozen == 0:
@@ -515,7 +524,7 @@ class GWGF(GWAC):
 
 
 if __name__ == '__main__':
-    from pyscf import gto, dft, scf
+    from pyscf import dft, gto, scf
     mol = gto.Mole()
     mol.verbose = 5
     mol.atom = [

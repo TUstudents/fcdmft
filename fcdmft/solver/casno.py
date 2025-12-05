@@ -1,10 +1,15 @@
-from pyscf import lib, gto, scf, mp, cc, ao2mo
-import pyscf
-import numpy, scipy, copy, h5py
+import copy
+
+import h5py
+import numpy
 import numpy as np
-from pyscf.lib import logger
-from fcdmft.gw.mol import gw_gf
+import pyscf
+import scipy
 from mpi4py import MPI
+from pyscf import ao2mo, cc, gto, lib, mp, scf
+from pyscf.lib import logger
+
+from fcdmft.gw.mol import gw_gf
 
 rank = MPI.COMM_WORLD.Get_rank()
 size = MPI.COMM_WORLD.Get_size()
@@ -496,7 +501,7 @@ def make_casno_cc(mycc, thresh=1e-4, nvir_act=None, nocc_act=None, vno_only=Fals
             Semicanonical NO coefficients in the AO basis
         dm : ndarray, correlated density matrix in MO basis (optional).
     '''
-    from pyscf.cc.eom_rccsd import vector_to_amplitudes_ip, vector_to_amplitudes_ea
+    from pyscf.cc.eom_rccsd import vector_to_amplitudes_ea, vector_to_amplitudes_ip
 
     mf = mycc._scf
     if not load_cc:
@@ -826,7 +831,7 @@ def make_casno_ucc(mycc, thresh=1e-4, nvir_act_a=None, nocc_act_a=None, nvir_act
         feri.close()
 
     dm = mycc.make_rdm1()
-    dm_gs = np.array(dm)
+    #dm_gs = np.array(dm)
     nmoa, nmob = mycc.nmo
     nocca, noccb = mycc.nocc
     if rank == 0:

@@ -31,29 +31,41 @@ Method:
 Note: MPI only works for GW code (DFT should run in serial)
 '''
 
+import os
+import time
 from functools import reduce
-import time, os
+
+import h5py
 import numpy
 import numpy as np
-import h5py
-from scipy.optimize import newton, least_squares
-
-from pyscf import lib
-from pyscf.lib import logger
+from mpi4py import MPI
+from pyscf import __config__, lib
 from pyscf.ao2mo import _ao2mo
 from pyscf.ao2mo.incore import _conc_mos
+from pyscf.lib import logger
 from pyscf.pbc import df, dft, scf
-from pyscf.pbc.mp.kmp2 import get_nocc, get_nmo, get_frozen_mask
 from pyscf.pbc.lib import chkfile
-from pyscf import __config__
+from pyscf.pbc.mp.kmp2 import get_frozen_mask, get_nmo, get_nocc
+from scipy.optimize import newton
 
-from fcdmft.gw.mol.gw_ac import _get_scaled_legendre_roots, \
-        two_pole_fit, two_pole, AC_twopole_diag, thiele, pade_thiele, \
-        AC_pade_thiele_diag, AC_twopole_full, AC_pade_thiele_full
-from fcdmft.gw.pbc.krgw_ac import KRGWAC, get_rho_response, get_rho_response_metal, \
-        get_sigma_diag, get_qij, get_rho_response_wing, \
-        get_rho_response_head
-from mpi4py import MPI
+from fcdmft.gw.mol.gw_ac import (
+    AC_pade_thiele_diag,
+    AC_pade_thiele_full,
+    AC_twopole_diag,
+    AC_twopole_full,
+    _get_scaled_legendre_roots,
+    pade_thiele,
+    two_pole,
+)
+from fcdmft.gw.pbc.krgw_ac import (
+    KRGWAC,
+    get_qij,
+    get_rho_response,
+    get_rho_response_head,
+    get_rho_response_metal,
+    get_rho_response_wing,
+    get_sigma_diag,
+)
 
 rank = MPI.COMM_WORLD.Get_rank()
 size = MPI.COMM_WORLD.Get_size()
@@ -87,7 +99,7 @@ def kernel(gw, gfomega, mo_energy, mo_coeff, orbs=None,
         kptlist = range(gw.nkpts)
     nkpts = gw.nkpts
     nklist = len(kptlist)
-    norbs = len(orbs)
+    #norbs = len(orbs)
     gw.orbs = orbs
 
     if gw.load_sigma and os.path.isfile('vxc.h5') and os.path.isfile('sigma_imag.h5'):
@@ -121,7 +133,7 @@ def kernel(gw, gfomega, mo_energy, mo_coeff, orbs=None,
 
     nocc = gw.nocc
     nmo = gw.nmo
-    nvir = nmo-nocc
+    #nvir = nmo-nocc
     mo_occ = gw.mo_occ
 
     # v_hf from DFT/HF density
@@ -188,7 +200,8 @@ def kernel(gw, gfomega, mo_energy, mo_coeff, orbs=None,
                     coeff.append(AC_twopole_full(sigmaI[k], omega, orbs, nocc))
             elif gw.ac == 'pade':
                 if is_metal:
-                    nk_pade = 18; ratio_pade = 5./6.
+                    nk_pade = 18
+                    ratio_pade = 5./6.
                     for k in range(nklist):
                         coeff_tmp, omega_fit = AC_pade_thiele_full(sigmaI[k], omega,
                                                            npts=nk_pade, step_ratio=ratio_pade)
@@ -218,7 +231,8 @@ def kernel(gw, gfomega, mo_energy, mo_coeff, orbs=None,
             sigmaI, omega = get_sigma_diag(gw, orbs, kptlist, freqs, wts, iw_cutoff=5.)
 
         # Analytic continuation
-        coeff = None; omega_fit = None
+        coeff = None
+        omega_fit = None
         if rank == 0:
             coeff = []
             if gw.ac == 'twopole':
@@ -226,7 +240,8 @@ def kernel(gw, gfomega, mo_energy, mo_coeff, orbs=None,
                     coeff.append(AC_twopole_diag(sigmaI[k], omega, orbs, nocc))
             elif gw.ac == 'pade':
                 if is_metal:
-                    nk_pade = 18; ratio_pade = 5./6.
+                    nk_pade = 18
+                    ratio_pade = 5./6.
                     for k in range(nklist):
                         coeff_tmp, omega_fit = AC_pade_thiele_diag(sigmaI[k], omega,
                                                            npts=nk_pade, step_ratio=ratio_pade)
@@ -354,7 +369,8 @@ def get_sigma_full(gw, orbs, kptlist, freqs, wts, iw_cutoff=None, max_memory=800
         assert(gw.ef)
         ef = gw.ef
     else:
-        homo = -99.; lumo = 99.
+        homo = -99.
+        lumo = 99.
         for k in range(nkpts):
             if homo < mo_energy[k][nocc-1]:
                 homo = mo_energy[k][nocc-1]
@@ -449,7 +465,11 @@ def get_sigma_full(gw, orbs, kptlist, freqs, wts, iw_cutoff=None, max_memory=800
                     Lij_out = None
                     # Read (L|pq) and ao2mo transform to (L|ij)
                     Lpq = []
-                    for LpqR, LpqI, sign in mydf.sr_loop([kpti, kptj], max_memory=0.1*gw._scf.max_memory, compact=False):
+                    for LpqR, LpqI, sign in mydf.sr_loop(
+                        [kpti, kptj],
+                        max_memory=0.1*gw._scf.max_memory,
+                        compact=False
+                    ):
                         Lpq.append(LpqR+LpqI*1.0j)
                     # support uneqaul naux on different k points
                     Lpq = np.vstack(Lpq).reshape(-1,nmo**2)
@@ -734,9 +754,10 @@ class KRGWGF(KRGWAC):
 
 
 if __name__ == '__main__':
-    from pyscf.pbc import gto, dft, scf
-    from pyscf.pbc.lib import chkfile
     import os
+
+    from pyscf.pbc import dft, gto, scf
+    from pyscf.pbc.lib import chkfile
     # This test takes a few minutes
     # Test on diamond
     cell = gto.Cell()

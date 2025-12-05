@@ -32,20 +32,24 @@ Other useful references:
     New J. Phys. 14, 053020 (2012)
 """
 
-import time, h5py
+import time
 from functools import reduce
+
 import numpy as np
+from pyscf import __config__, dft, lib, scf
+from pyscf.ao2mo import _ao2mo
+from pyscf.lib import logger
+from pyscf.mp.ump2 import get_frozen_mask, get_nmo, get_nocc
 from scipy.optimize import newton
 
-from pyscf import lib
-from pyscf.lib import logger
-from pyscf.ao2mo import _ao2mo
-from pyscf import df, dft, scf
-from pyscf.mp.ump2 import get_nocc, get_nmo, get_frozen_mask
-from pyscf import __config__
-from fcdmft.gw.mol.gw_ac import _get_scaled_legendre_roots, \
-        two_pole_fit, two_pole, AC_twopole_diag, thiele, pade_thiele, \
-        AC_pade_thiele_diag, GWAC
+from fcdmft.gw.mol.gw_ac import (
+    GWAC,
+    AC_pade_thiele_diag,
+    AC_twopole_diag,
+    _get_scaled_legendre_roots,
+    pade_thiele,
+    two_pole,
+)
 
 einsum = lib.einsum
 
@@ -71,8 +75,8 @@ def kernel(gw, mo_energy, mo_coeff, Lpq=None, orbs=None,
 
     nocca, noccb = gw.nocc
     nmoa, nmob = gw.nmo
-    nvira = nmoa - nocca
-    nvirb = nmob - noccb
+    #nvira = nmoa - nocca
+    #nvirb = nmob - noccb
 
     if Lpq is None:
         Lpq = gw.ao2mo(mo_coeff)
@@ -363,7 +367,7 @@ class UGWAC(GWAC):
             raise NotImplementedError
 
 if __name__ == '__main__':
-    from pyscf import gto, dft, scf
+    from pyscf import dft, gto, scf
     mol = gto.Mole()
     mol.verbose = 5
     mol.atom = 'O 0 0 0'

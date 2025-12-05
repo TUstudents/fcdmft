@@ -3,21 +3,18 @@
 CC impurity solver.
 """
 
-import numpy as np
-import scipy.linalg as la
-import h5py
-
-from pyscf import cc
 import time
-from pyscf import lib
-from pyscf import ao2mo
+
+import numpy as np
+from pyscf import ao2mo, cc, lib
 from pyscf.cc.uccsd import _ChemistsERIs
+
 
 def _make_eris_incore(mycc, mo_coeff=None, ao2mofn=None):
     """
     Hacked CC make eri function. NOTE the order.
     """
-    cput0 = (time.process_time(), time.perf_counter())
+    #cput0 = (time.process_time(), time.perf_counter())
     eris = _ChemistsERIs()
     eris._common_init_(mycc, mo_coeff)
 

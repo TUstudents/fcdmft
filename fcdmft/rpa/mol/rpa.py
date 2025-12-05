@@ -26,16 +26,13 @@ Method:
     X. Ren et al., New J. Phys. 14, 053020 (2012)
 """
 
-import time, h5py
-from functools import reduce
-import numpy as np
+import time
 
-from pyscf import lib
-from pyscf.lib import logger
+import numpy as np
+from pyscf import df, dft, lib, scf
 from pyscf.ao2mo import _ao2mo
-from pyscf import df, dft, scf
-from pyscf.mp.mp2 import get_nocc, get_nmo, get_frozen_mask
-from pyscf import __config__
+from pyscf.lib import logger
+from pyscf.mp.mp2 import get_frozen_mask, get_nmo, get_nocc
 
 einsum = lib.einsum
 
@@ -212,7 +209,7 @@ class RPA(lib.StreamObject):
             else:
                 try:
                     self.with_df.auxbasis = df.make_auxbasis(mf.mol, mp2fit=True)
-                except:
+                except Exception:
                     self.with_df.auxbasis = df.make_auxbasis(mf.mol, mp2fit=False)
         self._keys.update(['with_df'])
 
@@ -289,7 +286,7 @@ class RPA(lib.StreamObject):
         if mo_coeff is None:
             mo_coeff = self.mo_coeff
         nmo = self.nmo
-        nao = self.mo_coeff.shape[0]
+        #nao = self.mo_coeff.shape[0]
         naux = self.with_df.get_naoaux()
         mem_incore = (2 * nmo**2*naux) * 8 / 1e6
         mem_now = lib.current_memory()[0]
@@ -305,7 +302,7 @@ class RPA(lib.StreamObject):
             raise NotImplementedError
 
 if __name__ == '__main__':
-    from pyscf import gto, dft, scf
+    from pyscf import dft, gto, scf
     mol = gto.Mole()
     mol.verbose = 4
     mol.atom = [

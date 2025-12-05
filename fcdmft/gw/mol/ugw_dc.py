@@ -30,21 +30,19 @@ Other useful references:
     Phys. Rev. B 94, 165109 (2016)
 """
 
-import time, h5py
+import time
 from functools import reduce
+
+import h5py
 import numpy
 import numpy as np
-
-from pyscf import lib
+from pyscf import __config__, lib
 from pyscf.lib import logger
-from pyscf.ao2mo import _ao2mo
-from pyscf import gto, df, dft, scf
-from pyscf.mp.ump2 import get_nocc, get_nmo, get_frozen_mask
-from pyscf import __config__
-from fcdmft.gw.mol.gw_ac import _get_scaled_legendre_roots, \
-        two_pole, pade_thiele, AC_twopole_full, AC_pade_thiele_full
-from fcdmft.gw.mol.ugw_ac import UGWAC
+from pyscf.mp.ump2 import get_frozen_mask, get_nmo, get_nocc
+
+from fcdmft.gw.mol.gw_ac import AC_pade_thiele_full, AC_twopole_full, _get_scaled_legendre_roots, pade_thiele, two_pole
 from fcdmft.gw.mol.gw_dc import CT_t_to_w
+from fcdmft.gw.mol.ugw_ac import UGWAC
 
 einsum = lib.einsum
 
@@ -54,13 +52,12 @@ def kernel(gw, gfomega, Lpq=None, kmf=None, C_mo_lo=None, orbs=None,
     Returns:
        sigma : GW double counting self-energy on real axis
     '''
-    mf = gw._scf
     assert(gw.frozen == 0)
 
     nocca, noccb = gw.nocc
     nmoa, nmob = gw.nmo
-    nvira = nmoa - nocca
-    nvirb = nmob - noccb
+    #nvira = nmoa - nocca
+    #nvirb = nmob - noccb
     assert(gw.ef)
     ef = gw.ef
 
@@ -129,7 +126,8 @@ def get_sigma_full(gw, orbs, Lpq, kmf, C_mo_lo, freqs, wts_w, time, wts_t, iw_cu
     print('### computing polarization in imag time and freq domain ###')
     tchunk = 100
     n_tchunk = len(time) // tchunk
-    tlist = []; wtslist = []
+    tlist = []
+    wtslist = []
     for i in range(n_tchunk):
         tlist.append(time[i*tchunk:(i+1)*tchunk])
         wtslist.append(wts_t[i*tchunk:(i+1)*tchunk])

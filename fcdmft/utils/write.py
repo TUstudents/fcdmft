@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def write_dos(filename, freqs, ldos, occupancy=None):
     spin = ldos.shape[0]
     if spin == 1:
